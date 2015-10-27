@@ -1,3 +1,4 @@
+!#define DEBUG 
 program main
 use kmeans 
 implicit none
@@ -13,6 +14,11 @@ integer				:: numSlaves, parNumObjects, remain, maxNumObjects
 integer,allocatable	:: procNumObjects(:), offsets(:)
 integer				:: i	
 integer, parameter	:: max_iterations=50
+#ifdef DEBUG
+character(len=64)   :: fmtstr
+#endif
+
+
 !!Get arguments
 if(COMMAND_ARGUMENT_COUNT() < 3) then
 	call error_message()
@@ -28,6 +34,11 @@ read(arg, '(I10)') numAttributes
 
 call GET_COMMAND_ARGUMENT(3, arg)
 read(arg, '(I10)') numClusters
+#ifdef DEBUG
+write(6, '(A, I4, A, I4, A, I4)'), 'numObject=', numObjects, ' numAttributes=', numAttributes, ' numClusters=', numClusters
+#endif
+
+sync all
 
 !!Initialize processes
 !!The image 1 will store all informations, 
@@ -38,8 +49,9 @@ parNumObjects =  numObjects/numSlaves
 remain = numObjects - parNumObjects*numSlaves
 
 allocate(procNumObjects(num_images()))
-
+allocate(offsets(num_images()))
 procNumObjects(1) = 0
+
 do i = 2, num_images()
 	if (i-1<remain) then
 		procNumObjects(i) = parNumObjects+1
@@ -47,7 +59,9 @@ do i = 2, num_images()
 		procNumObjects(i) = parNumObjects
 	end if
 end do 
+
 offsets(1) = 1
+
 do i = 2, num_images()
 	offsets(i) = offsets(i-1) + procNumObjects(i-1)
 end do
@@ -55,6 +69,12 @@ end do
 maxNumObjects = maxval(procNumObjects(:)) !the max number of parNumObjects
 
 procNumObjects(1) = numObjects
+
+#ifdef DEBUG
+write(fmtstr, '(A,I,A)') '(A,',size(procNumObjects),'I4)'
+write(6, fmt=fmtstr) 'procNumObjects=',procNumObjects
+write(6, fmt=fmtstr) 'offsets=',offsets
+#endif
 
 !!Memory Allocation
 !if(this_image() == 1) then
@@ -121,8 +141,8 @@ end if
 
 contains
 subroutine error_message()
-	write(*, ('A,A')) "Error using kmeans: Three arguments required:\n", &
-	"kmeans numElements numAttributes numClusters"
+	write(6, '(A)') 'Error using kmeans: Three arguments required: &
+	& kmeans numElements numAttributes numClusters'
 end subroutine error_message
 !Intialization subroutines
 
@@ -173,11 +193,19 @@ subroutine readInDataset(data_in, fileName)
 	implicit none
 	type(data_struct), intent(inout)	:: data_in
 	character(len=*)					:: filename
-	integer		:: numAttributes, numObjects
+    character(len=32)                   :: linefmt
+	integer		                        :: numAttributes, numObjects,i,j
 	open(2, file=filename)
-	read(2, '(I4,I4)') numObjects, numAttributes
-	write(6, '(A, I4, A, I4)'), 'numObject=', numObjects, 'numAttributes=', numAttributes	
-
+	read(2, '(I,I)') numObjects, numAttributes
+#ifdef DEBUG
+	write(6, '(A, I4, A, I4)'), 'In datafile, numObject=', numObjects, ' numAttributes=', numAttributes	
+#endif
+   do j=1,numObjects 
+    read(2, *) data_in%dataset(:,j)
+   end do
+   data_in%leading_dim=numAttributes
+   data_in%secondary_dim=numObjects
+   call print_dataset(data_in)
 	close(2)
 end subroutine readInDataset
 end program main

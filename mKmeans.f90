@@ -12,11 +12,11 @@ real(kind=8), parameter				:: threshold=0.01
 contains
 	subroutine print_dataset(data_in) 
 	!Print out the dataset in data_in or clusters
-		type(data_struct), intent(in)	:: data_in[*]
+		type(data_struct), intent(in)	:: data_in
 		integer							:: i
 
-		do i = 1, data_in%leading_dim
-			write(*, '(F6.6, F6.6)') data_in%dataset(:, i)
+		do i = 1, data_in%secondary_dim
+			write(*, *) data_in%dataset(:, i)
 		end do
 	end subroutine print_dataset
 	

@@ -1,20 +1,23 @@
-CC = gcc
-MCC = mpicc
-FLG = -O4
-NAME = kmeansTest
+#CC = gcc
+#MCC = mpicc
+#FLG = -O4
+FC=uhcaf
+FFLAGS= -ftpp -DDEBUG
+NAME = kmeanTest
+MODS = KMEANS.mod
+OBJS = mKmeans.o kmeanTest.o
 
-all: kmeansTest.o kmeans.o cluster.h
+all: $(OBJS) $(MOD)
 
-	$(MCC) $(FLG) kmeansTest.o kmeans.o -o $(NAME)
+	$(FC) $(FFLAGS) $(OBJS) -o $(NAME)
 
-kmeansTest.o: kmeansTest.c kmeans.h
+kmeanTest.o: kmeanTest.f90 $(MODS)
 
-	$(MCC) $(FLG) kmeansTest.c -c
+	$(FC) $(FFLAGS) kmeanTest.f90 -c
 	
-kmeans.o: kmeans.c kmeans.h cluster.h
+mKmeans.o: mKmeans.f90
 
-	$(MCC) $(FLG) kmeans.c -c
+	$(FC) $(FFLAGS) mKmeans.f90 -c
 
 clean:
-	rm -f *.o *.out *.exe
-	rm -f *.bin  
+	rm -f *.o *.mod 
