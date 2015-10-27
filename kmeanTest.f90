@@ -99,10 +99,10 @@ if(this_image() == 1) then
 end if
 
 !!Distribute dataset
-do i = 2, num_images()
-	data_in[i]%dataset(:,1:procNumObjects(i)) = data_overall%dataset(:,offsets(i):offsets(i)+procNumObjects(i)-1)
-
-end do
+!do i = 2, num_images()
+!	data_in[i]%dataset(:,1:procNumObjects(i)) = data_overall%dataset(:,offsets(i):offsets(i)+procNumObjects(i)-1)
+!
+!end do
 
 !!main part, Cluster data
 call cluster(data_in, clusters, max_iterations)
@@ -176,7 +176,7 @@ subroutine readInDataset(data_in, fileName)
 	integer		:: numAttributes, numObjects
 	open(2, file=filename)
 	read(2, '(I4,I4)') numObjects, numAttributes
-	
+	write(6, '(A, I4, A, I4)'), 'numObject=', numObjects, 'numAttributes=', numAttributes	
 
 	close(2)
 end subroutine readInDataset
