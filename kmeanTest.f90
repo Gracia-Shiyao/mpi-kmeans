@@ -10,22 +10,23 @@ type(data_struct)	:: clusters
 type(data_struct)	:: data_overall !only valid in master image(this_image() == 1)
 
 integer				:: numSlaves, parNumObjects, remain, maxNumObjects
-integer				:: procNumObjects(:), offsets(:)
-integer				:: i
+integer,allocatable	:: procNumObjects(:), offsets(:)
+integer				:: i	
+integer, parameter	:: max_iterations=50
 !!Get arguments
-if(iargs() < 3) 
+if(COMMAND_ARGUMENT_COUNT() < 3) then
 	call error_message()
 	error stop "Incomplete arguments"
 end if
 
 !Usage: kmeanTest numObjects numAttributes numClusters
-call getarg(1, arg)
+call GET_COMMAND_ARGUMENT(1, arg)
 read(arg, '(I10)') numObjects
 
-call getarg(2, arg)
+call GET_COMMAND_ARGUMENT(2, arg)
 read(arg, '(I10)') numAttributes
 
-call getarg(3, arg)
+call GET_COMMAND_ARGUMENT(3, arg)
 read(arg, '(I10)') numClusters
 
 !!Initialize processes
@@ -81,7 +82,7 @@ end if
 !numObjects = procNumObjects(this_image())
 data_in%leading_dim = numAttributes
 data_in%secondary_dim = procNumObjects(this_image())
-allocate(data_in%dataset(numAtrribute, maxNumObjects))
+allocate(data_in%dataset(numAttributes, maxNumObjects))
 allocate(data_in%members(maxNumObjects))
 
 clusters%leading_dim = numAttributes
@@ -91,14 +92,15 @@ allocate(clusters%members(numClusters))
 
 !!Intialize dataset in image 1
 if(this_image() == 1) then
-	call random_initialization(data_overall)
+!	call random_initialization(data_overall)
 !	call initialize_cluster(data_in, clusters)
+	call readInDataset(data_overall, "data.dat")
 	write(*, '(A)') "Dataset initialized"
 end if
 
 !!Distribute dataset
 do i = 2, num_images()
-	data_in[i]%dataset(:,1:procNumObjects(i)) = data_overall%dataset(:,)
+	data_in[i]%dataset(:,1:procNumObjects(i)) = data_overall%dataset(:,offsets(i):offsets(i)+procNumObjects(i)-1)
 
 end do
 
@@ -136,14 +138,14 @@ subroutine random_initialization(data_in)
 	do i=1, m
 		data_in%members(i) = 0
 		do j=1,n
-			data_in%dataset(i,j) = rand()/RAND_MAX
+!			data_in%dataset(i,j) = rand()/RAND_MAX
 		end do
 	end do
 end subroutine random_initialization
-subroutine intialize_clusters(data_in, cluster_in)
+subroutine initialize_clusters(data_in, cluster_in)
 	!Randomly pick initial cluster centers
 	implicit none
-	type(data_struct), intent(in)	:: data_in
+	type(data_struct), intent(in)	:: data_in[*]
 	type(data_struct), intent(inout):: cluster_in
 
 	integer							:: i,j,pick,&
@@ -156,6 +158,26 @@ subroutine intialize_clusters(data_in, cluster_in)
 	step = Objects/m
 
 	do i = 1, m
+		do j = 1, n
+		cluster_in%dataset(i,j) = data_in%dataset(pick,j) 
+		end do
+		pick = pick + step
 	end do
 end subroutine initialize_clusters
+
+
+!!This routine is used for read in stored dataset
+!!Dataset start with numTotalData, numAttributes
+!!following with numTotalData points pair
+subroutine readInDataset(data_in, fileName)
+	implicit none
+	type(data_struct), intent(inout)	:: data_in
+	character(len=*)					:: filename
+	integer		:: numAttributes, numObjects
+	open(2, file=filename)
+	read(2, '(I4,I4)') numObjects, numAttributes
+	
+
+	close(2)
+end subroutine readInDataset
 end program main

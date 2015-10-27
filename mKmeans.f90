@@ -3,20 +3,20 @@ module kmeans
 implicit none
 
 type data_struct 
-	real(kind=8)		:: dataset(:,:) !dataset(numAttributes, numObjects)
-	integer(kind=8)		:: members(:) !member(numObjects)
+	real(kind=8),allocatable		:: dataset(:,:) !dataset(numAttributes, numObjects)
+	integer(kind=8),allocatable		:: members(:) !member(numObjects)
 	integer				:: leading_dim
 	integer				:: secondary_dim
 end type 
-
+real(kind=8), parameter				:: threshold=0.01
 contains
 	subroutine print_dataset(data_in) 
 	!Print out the dataset in data_in or clusters
-		type(data_struct), intent(in)	:: data_in
-		integer,						:: i
+		type(data_struct), intent(in)	:: data_in[*]
+		integer							:: i
 
-		do i = 1, leading_dim
-			write(*, '(F6.6, F6.6)') dataset(:, i)
+		do i = 1, data_in%leading_dim
+			write(*, '(F6.6, F6.6)') data_in%dataset(:, i)
 		end do
 	end subroutine print_dataset
 	
@@ -37,13 +37,13 @@ contains
 	!Only slave processes will enter this subroutine
 	subroutine kmeans_process(data_in, clusters, newCentroids, SumOfDist, sse)
 		implicit none
-		type(data_struct), intent(in)	:: data_in !data_in[2..NumImages]
+		type(data_struct), intent(inout)	:: data_in[*] !data_in[2..NumImages]
 		type(data_struct), intent(inout):: clusters
 		real(kind=8), intent(inout)		:: newCentroids(:,:)!Centroids(numAttributes, numClusters)
 		real(kind=8), intent(inout)		:: SumOfDist
 		real(kind=8), intent(inout)		:: sse
 
-		integer							:: i,k
+		integer							:: i,k,j
 		real(kind=8)					:: tmp_dist, min_dist
 		integer							:: tmp_index
 
@@ -56,7 +56,7 @@ contains
 			min_dist = huge(min_dist)
 
 			!Find nearest center
-			do k = 1, cluster%secondary_dim
+			do k = 1, clusters%secondary_dim
 				tmp_dist = euclidean_distance(data_in%dataset(:,i), clusters%dataset(:,k), data_in%leading_dim)
 				if(tmp_dist < min_dist) then
 					min_dist = tmp_dist
@@ -64,7 +64,7 @@ contains
 				end if
 			end do
 
-			data_in%member(i) =  tmp_index
+			data_in%members(i) =  tmp_index
 			SumOfDist = SumOfDist + min_dist
 			sse = sse + min_dist*min_dist
 			clusters%members(tmp_index) = clusters%members(tmp_index)+1
@@ -80,18 +80,18 @@ contains
 
 	subroutine cluster(data_in, clusters, max_iteration)
 		implicit none
-		type(data_struct), intent(inout)	:: data_in
+		type(data_struct), intent(inout)	:: data_in[*]
 		type(data_struct), intent(inout)	:: clusters
 		integer			 , intent(in)		:: max_iteration
 
 		integer								:: i, j, k, iter, dest
 		real(kind=8)						:: SumOfDist, new_SumOfDist, &
 												part_SumOfDist, sse, psse
-		integer, allocatable				:: part_size(:) !part_size(numClusters)										
-		reald(kind=8), allocatable			:: newCentroids(:,:), partCentroids(:,:)!Centroids(numAttributes, numClusters)
+		integer, allocatable				:: part_size(:)[:] !part_size(numClusters)										
+		real(kind=8), allocatable			:: newCentroids(:,:)!Centroids(numAttributes, numClusters)
+		real(kind=8), allocatable			:: partCentroids(:,:)
 
 		integer								:: endcond 
-
 		!Intialize
 		SumOfDist = 0
 		new_SumOfDist = 0
@@ -99,7 +99,7 @@ contains
 		endcond =0
 
 		!Allocation
-		allocate(part_size(clusters%secondary_dim))
+		allocate(part_size(clusters%secondary_dim)[*])
 		allocate(newCentroids(clusters%leading_dim, clusters%secondary_dim))
 		allocate(partCentroids(clusters%leading_dim, clusters%secondary_dim))
 
@@ -131,7 +131,10 @@ contains
 				newCentroids(:,:) = partCentroids(:,:)
 
 				sync all
-				!GET
+				!Sum up partial clusters' size
+				call co_sum(part_size(:), 1) 
+				clusters%members(:) =  part_size(:)
+					
 
 				!Sum up partial clusters' size that is received from other processes
 				!do dest=1, NumTask-1
@@ -157,7 +160,7 @@ contains
 				end if
 
 				SumOfDist = new_SumOfDist
-				write(6, '(A, I6, A, f6.6') "Sum of Distances of iteration ", iter,": ", new_SumOfDist
+				write(6, '(A, I6, A, f6.6)') "Sum of Distances of iteration ", iter,": ", new_SumOfDist
 			else ! rank > 0
 				part_SumOfDist = 0
 				psse = 0
@@ -165,7 +168,7 @@ contains
 				!Receive new clusters' centers from master processes
 				call co_broadcast(clusters%dataset(:,:), 1)
 				!Set new partCentroids to zero
-				clusters%partCentroids(:,:) = 0
+				partCentroids = 0
 
 				call kmeans_process(data_in, clusters, partCentroids, part_SumOfDist, psse)
 
@@ -176,18 +179,18 @@ contains
 				call co_sum(partCentroids(:,:), 1)
 
 				!Each slave process sends the partial clusters' sizes
-				!Put
 				sync all
+				call co_sum(part_size(:), 1)
 
 				!Each slave process receive the condition whether sum of distance has stablized
 				call co_broadcast(endcond, 1)
-				if(endcond) exit
+				if(endcond == 1) exit
 			end if	
 		end do!End of iterations
 
 		if(this_image() == 0) then
 			!Reduce partial sse computed
-			call co_sum（psse, 1)
+			call co_sum(psse, 1)
 			sse = psse
 			write(6, '(A, I6, A)') "Finished after ", iter, " iterations"
 			write(6, '(A, F6.6)') "SSE equals to ", sse
