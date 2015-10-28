@@ -6,7 +6,7 @@ implicit none
 character(len=32)	:: arg
 integer				:: numObjects, numAttributes, numClusters
 
-type(data_struct)	:: data_in[*]
+type(data_struct)	:: data_in
 type(data_struct)	:: clusters[*]
 type(data_struct)	:: data_overall[*] !only valid in master image(this_image() == 1)
 
@@ -42,7 +42,7 @@ sync all
 
 !!Initialize processes
 !!The image 1 will store all informations, 
-!!other images, as slave images, involve in processing?
+!!other images, as slave images, involve in processing
 numSlaves = num_images() - 1
 parNumObjects =  numObjects/numSlaves
 

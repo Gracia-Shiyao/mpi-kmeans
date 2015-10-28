@@ -3,12 +3,12 @@ module kmeans
 implicit none
 
 type data_struct 
-	real(kind=8),allocatable		:: dataset(:,:) !dataset(numAttributes, numObjects)
-	integer(kind=8),allocatable		:: members(:) !member(numObjects)
+	real,allocatable		:: dataset(:,:) !dataset(numAttributes, numObjects)
+	integer,allocatable		:: members(:) !member(numObjects)
 	integer				:: leading_dim
 	integer				:: secondary_dim
 end type 
-real(kind=8), parameter				:: threshold=0.01
+real, parameter				:: threshold=0.01
 contains
 	subroutine print_dataset(data_in) 
 	!Print out the dataset in data_in or clusters
@@ -22,7 +22,7 @@ contains
     
     subroutine print_matrix(u, matrix)
     integer         :: u !unit
-    real(kind=8)    :: matrix(:,:)
+    real    :: matrix(:,:)
 
     integer         :: sizeofm(2), i
     character(len=32)   :: fmtstr
@@ -39,10 +39,10 @@ contains
 	
 	function euclidean_distance(v1, v2, length) result(dist)
 		implicit none
-		real(kind=8), intent(in)		:: v1(:)
-		real(kind=8), intent(in)		:: v2(:)
+		real, intent(in)		:: v1(:)
+		real, intent(in)		:: v2(:)
 		integer		, intent(in)		:: length
-		real(kind=8)					:: dist
+		real					:: dist
 
 		integer							:: i
 
@@ -54,14 +54,14 @@ contains
 	!Only slave processes will enter this subroutine
 	subroutine kmeans_process(data_in, clusters, newCentroids, SumOfDist, sse)
 		implicit none
-		type(data_struct), intent(inout)	:: data_in[*] !data_in[2..NumImages]
+		type(data_struct), intent(inout)	:: data_in !data_in[2..NumImages]
 		type(data_struct), intent(inout):: clusters
-		real(kind=8), intent(inout)		:: newCentroids(:,:)!Centroids(numAttributes, numClusters)
-		real(kind=8), intent(inout)		:: SumOfDist
-		real(kind=8), intent(inout)		:: sse
+		real, intent(inout)		:: newCentroids(:,:)!Centroids(numAttributes, numClusters)
+		real, intent(inout)		:: SumOfDist
+		real, intent(inout)		:: sse
 
 		integer							:: i,k,j
-		real(kind=8)					:: tmp_dist, min_dist
+		real        					:: tmp_dist, min_dist
 		integer							:: tmp_index
 
 		!zero-fy clusters' members
@@ -97,16 +97,14 @@ contains
 
 	subroutine cluster(data_in, clusters, max_iteration)
 		implicit none
-		type(data_struct), intent(inout)	:: data_in[*]
+		type(data_struct), intent(inout)	:: data_in
 		type(data_struct), intent(inout)	:: clusters[*]
 		integer			 , intent(in)		:: max_iteration
 
 		integer								:: i, j, k, iter, dest
-		real(kind=8)						:: SumOfDist, new_SumOfDist, &
-												part_SumOfDist, sse, psse
-!        integer     ,allocatable            :: part_size(:)[:]
-		real(kind=8), allocatable			:: newCentroids(:,:)!Centroids(numAttributes, numClusters)
-!		real(kind=8), allocatable			:: partCentroids(:,:)
+		real						:: SumOfDist, new_SumOfDist, &
+								        part_SumOfDist, sse, psse
+		real, allocatable			:: newCentroids(:,:)!Centroids(numAttributes, numClusters)
 
 		integer								:: endcond 
 		!Intialize
