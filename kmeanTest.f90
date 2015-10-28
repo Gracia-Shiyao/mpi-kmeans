@@ -7,12 +7,12 @@ character(len=32)	:: arg
 integer				:: numObjects, numAttributes, numClusters
 
 type(data_struct)	:: data_in[*]
-type(data_struct)	:: clusters
-type(data_struct)	:: data_overall !only valid in master image(this_image() == 1)
+type(data_struct)	:: clusters[*]
+type(data_struct)	:: data_overall[*] !only valid in master image(this_image() == 1)
 
 integer				:: numSlaves, parNumObjects, remain, maxNumObjects
 integer,allocatable	:: procNumObjects(:), offsets(:)
-integer				:: i	
+integer				:: i,j,p
 integer, parameter	:: max_iterations=50
 #ifdef DEBUG
 character(len=64)   :: fmtstr
@@ -76,27 +76,13 @@ write(6, fmt=fmtstr) 'procNumObjects=',procNumObjects
 write(6, fmt=fmtstr) 'offsets=',offsets
 #endif
 
-!!Memory Allocation
-!if(this_image() == 1) then
-!	data_in%leading_dim = numAttributes
-!	data_in%secondary_dim = numObjects
-!	allocate(data_in%dataset(numAttributes, numObjects))
-!	allocate(data_in%members(numObjects))
-!else
-!	numObjects = procNumObjects(this_image())
-!	data_in%leading_dim = numAttributes
-!	data_in%secondary_dim = numObjects
-!	allocate(data_in%dataset(numAttributes, numObjects))
-!	allocate(data_in%members(numObjects))
-!end if
-
 !Local memory allocation in image 1
-if(this_image() == 1) then
+!if(this_image() == 1) then
 	data_overall%leading_dim = numAttributes
 	data_overall%secondary_dim = numObjects
 	allocate(data_overall%dataset(numAttributes, numObjects))
 	allocate(data_overall%members(numObjects))
-end if
+!end if
 
 !!Data_in coarray allocation on all images
 !numObjects = procNumObjects(this_image())
@@ -109,28 +95,45 @@ clusters%leading_dim = numAttributes
 clusters%secondary_dim = numClusters
 allocate(clusters%dataset(numAttributes, numClusters))
 allocate(clusters%members(numClusters))
-
+#ifdef DEBUG
+write(6, '(A,I4)') 'maxNumObjects=', maxNumObjects
+#endif
 !!Intialize dataset in image 1
 if(this_image() == 1) then
-!	call random_initialization(data_overall)
-!	call initialize_cluster(data_in, clusters)
 	call readInDataset(data_overall, "data.dat")
+    call initialize_clusters(data_overall, clusters)
+#ifdef DEBUG
+    call print_dataset(clusters)
+#endif
 	write(*, '(A)') "Dataset initialized"
 end if
 
-!!Distribute dataset
-!do i = 2, num_images()
-!	data_in[i]%dataset(:,1:procNumObjects(i)) = data_overall%dataset(:,offsets(i):offsets(i)+procNumObjects(i)-1)
-!
-!end do
+sync all
+if(this_image() .ne. 1) then
+    j = offsets(this_image())
+    p = procNumObjects(this_image())
+    data_in%dataset(:,:) = data_overall[1]%dataset(:,j:j+p-1)
+#ifdef DEBUG
+    write(6, '(A,I2,A,I4,A,I4)') 'image=', this_image(), 'fetch dataset(:,',j,':',j+p-1
+#endif
+end if 
 
+sync all
+#ifdef DEBUG
+if(this_image() .ne. 1) then
+    call print_dataset(data_in)
+end if
+#endif
 !!main part, Cluster data
 call cluster(data_in, clusters, max_iterations)
 
+sync all
 !!Save final cluster indexes
-!! why should I recollecting these dataset?
 if(this_image() .ne. 1 ) then
 	!write back their members
+    j = offsets(this_image())
+    p = procNumObjects(this_image())
+    data_overall[1]%members(j:j+p-1) = data_in%members(:)
 end if
 
 !! Save data to files
@@ -158,14 +161,14 @@ subroutine random_initialization(data_in)
 	do i=1, m
 		data_in%members(i) = 0
 		do j=1,n
-!			data_in%dataset(i,j) = rand()/RAND_MAX
+!			data_in%dataset(i,j) = srand()/RAND_MAX
 		end do
 	end do
 end subroutine random_initialization
 subroutine initialize_clusters(data_in, cluster_in)
 	!Randomly pick initial cluster centers
 	implicit none
-	type(data_struct), intent(in)	:: data_in[*]
+	type(data_struct), intent(in)	:: data_in
 	type(data_struct), intent(inout):: cluster_in
 
 	integer							:: i,j,pick,&
@@ -176,10 +179,11 @@ subroutine initialize_clusters(data_in, cluster_in)
 	Objects = data_in%secondary_dim!numObjects
 
 	step = Objects/m
+    pick = 1
 
-	do i = 1, m
+	do i = 1,m 
 		do j = 1, n
-		cluster_in%dataset(i,j) = data_in%dataset(pick,j) 
+		cluster_in%dataset(j,i) = data_in%dataset(j,pick) 
 		end do
 		pick = pick + step
 	end do

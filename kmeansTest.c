@@ -95,7 +95,7 @@ void save_dataset(data_struct * data2save, char *filename){
 	//for each line, print data vector
 	for(i=0;i<m;i++) {
 		for(j=0;j<n;j++) {
-			fprintf(outfile,"%6.3f ", data2save->dataset[i*n+j]);
+			fprintf(outfile,"%lf ", data2save->dataset[i*n+j]);
 		}
 		fprintf(outfile,"\n");
 	}
@@ -230,6 +230,7 @@ int main(int argc, char **argv){
     random_initialization(&data_in);
     initialize_clusters(&data_in, &clusters);
     printf("Data initiallized!\n");
+	print(&clusters);
 	save_dataset(&data_in, "data.dat");
   }
 

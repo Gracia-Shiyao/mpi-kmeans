@@ -2,7 +2,7 @@ CC = gcc
 MCC = mpicc
 #FLG = -O4
 FC=uhcaf
-FFLAGS= -ftpp -DDEBUG
+FFLAGS= -ftpp  
 NAME = kmeansTestF
 MODS = KMEANS.mod
 OBJS = mKmeans.o kmeanTest.o
@@ -25,5 +25,5 @@ kmeansTestc: $(OBJC) cluster.h
 #
 clean:
 	rm -f *.o *.mod 
-	#rm $(NAME) kmeansTestc
-	rm *.bin *.out *.exe
+	rm -f *.bin *.out *.exe *.dat
+	rm -f $(NAME) kmeansTestc
