@@ -205,7 +205,9 @@ subroutine readInDataset(data_in, fileName)
    end do
    data_in%leading_dim=numAttributes
    data_in%secondary_dim=numObjects
+#ifdef DEBUG
    call print_dataset(data_in)
+#endif
 	close(2)
 end subroutine readInDataset
 end program main

@@ -68,22 +68,39 @@ void initialize_clusters(data_struct *data_in,data_struct *cluster_in){
 
 void print(data_struct* data2print){
 
-  int i, j = 0;
-  int n = data2print->leading_dim;
-  int m = data2print->secondary_dim;
-  double *tmp_dataset = data2print->dataset;
+	int i, j = 0;
+	int n = data2print->leading_dim;//numAttributes
+	int m = data2print->secondary_dim;//numObjects
+	double *tmp_dataset = data2print->dataset;
 
-  
-  for(i=0; i<m; i++){
-    for(j=0; j<n; j++){
-      printf("%f ", tmp_dataset[i*n + j]);
-    }
-    printf("\n");
-  }
-  
+
+	for(i=0; i<m; i++){
+		for(j=0; j<n; j++){
+			printf("%f ", tmp_dataset[i*n + j]);
+		}
+		printf("\n");
+	}
 }
 
+void save_dataset(data_struct * data2save, char *filename){
+	int i, j = 0;
+	FILE * outfile;
+	int n = data2save->leading_dim; //numAttributes
+	int m = data2save->secondary_dim; //numObjects
+	if((outfile=fopen(filename, "w")) == NULL) {
+		printf("Cannot open file %s\n", filename);
+	}  
 
+	fprintf(outfile,"%d,%d\n",m,n);
+	//for each line, print data vector
+	for(i=0;i<m;i++) {
+		for(j=0;j<n;j++) {
+			fprintf(outfile,"%6.3f ", data2save->dataset[i*n+j]);
+		}
+		fprintf(outfile,"\n");
+	}
+	fclose(outfile);	
+}
 void save(data_struct* data2save, char *filename1, char *filename2){
 
   int i, j = 0;
@@ -213,6 +230,7 @@ int main(int argc, char **argv){
     random_initialization(&data_in);
     initialize_clusters(&data_in, &clusters);
     printf("Data initiallized!\n");
+	save_dataset(&data_in, "data.dat");
   }
 
   /*=================================*/
